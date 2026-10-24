@@ -19,7 +19,6 @@ if os.path.exists(archive) and os.path.getsize(archive) != expected:
 
 if not os.path.exists(archive):
     urllib.request.urlretrieve(url, archive, progress)
-    print()
 
 with tarfile.open(archive) as t:
     t.extractall(out_dir)
