@@ -1,0 +1,33 @@
+{
+  "currency": "EGP",
+  "tiers": [
+    {
+      "up_to_kwh": 50,
+      "price": 0.68
+    },
+    {
+      "up_to_kwh": 100,
+      "price": 0.87
+    },
+    {
+      "up_to_kwh": 200,
+      "price": 1.0
+    },
+    {
+      "up_to_kwh": 350,
+      "price": 1.73
+    },
+    {
+      "up_to_kwh": 650,
+      "price": 2.18
+    },
+    {
+      "up_to_kwh": 1000,
+      "price": 2.35
+    },
+    {
+      "up_to_kwh": null,
+      "price": 2.89
+    }
+  ]
+}
