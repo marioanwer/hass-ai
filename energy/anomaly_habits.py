@@ -1,4 +1,3 @@
-
 from pathlib import Path
 
 import joblib
@@ -16,8 +15,19 @@ def _expected_same_hour(s, days=7, min_days=4):
     return lags.mean(axis=1).where(lags.notna().sum(axis=1) >= min_days)
 
 
+def apply_rules(X, thr):
+    return pd.DataFrame({
+        "low_power":  X["GAP_ratio"] < thr["GAP_ratio_low"],    # consumption collapses vs usual
+        "power_jump": X["GAP_diff"] > thr["GAP_diff_high"],     # far above the usual for this hour
+        "stuck_high": X["SM3_min6"] > thr["SM3_min6_high"],     # device never drops for 6 hours
+    }, index=X.index)
+
+
 def detect(df, model_path=MODEL_PATH):
+    """Isolation Forest + three simple rules. Returns one row per hour with data."""
     bundle = joblib.load(model_path)
+    if "rule_thresholds" not in bundle:
+        raise ValueError("anomaly_model.joblib has no rule_thresholds: re-run cell 13 of the notebook")
     d = df.sort_index()
     grid = pd.date_range(d.index.min(), d.index.max(), freq="1h")
     d = d.reindex(grid)
@@ -39,12 +49,16 @@ def detect(df, model_path=MODEL_PATH):
     valid = gap.notna() & sm3.notna()
     has_context = F.notna().all(axis=1)
     X = F.fillna(pd.Series(bundle["fill_values"]))[valid]
-    model = bundle["model"]
-    return pd.DataFrame({
-        "anomaly": model.predict(X) == -1,
-        "score": model.score_samples(X),
+
+    iso_flag = bundle["model"].predict(X) == -1
+    rules = apply_rules(X, bundle["rule_thresholds"])
+    out = pd.DataFrame({
+        "anomaly": iso_flag | rules.any(axis=1).to_numpy(),
+        "score": bundle["model"].score_samples(X),
+        "iso": iso_flag,
         "has_context": has_context[valid],
     }, index=X.index)
+    return out.join(rules)
 
 
 # ---------------- habit suggestions ----------------
