@@ -1,6 +1,6 @@
 # Data dictionary: clean_energy.csv
 
-Hourly table with 34,169 rows from 2006-12-16 17:00:00 to 2010-11-26 21:00:00. The first column is the datetime index (`datetime`). Built by `clean_energy.py` from the UCI Individual Household Electric Power Consumption file.
+Hourly table with 34,169 rows from 2006-12-16 17:00:00 to 2010-11-26 21:00:00. The first column is the datetime index (`datetime`). Built by the notebook `01_clean_explore.ipynb` from the UCI Individual Household Electric Power Consumption file.
 
 | Column | Unit | Meaning |
 |---|---|---|
