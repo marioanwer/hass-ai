@@ -13,3 +13,11 @@ data_clean/
 
 # secrets
 firebase_key.json
+
+# generated models (rebuilt by train_*.py)
+*.joblib
+# audio datasets
+speech_commands/
+arabic-speech-commands-dataset-v1.0/
+*.wav
+*.npy

@@ -9,31 +9,18 @@ HABIT_DEVICES = ["Water heater [kW]", "Pool Pump [kW]", "Laundry [kW]",
                  "Home Theater [kW]", "Car charger [kW]"]
 
 
-# ---------------- fault detection ----------------
-def _expected_same_hour(s, days=7, min_days=4):
+def expected_same_hour(s, days=7, min_days=4):
     lags = pd.concat([s.shift(24 * k) for k in range(1, days + 1)], axis=1)
     return lags.mean(axis=1).where(lags.notna().sum(axis=1) >= min_days)
 
 
-def apply_rules(X, thr):
-    return pd.DataFrame({
-        "low_power":  X["GAP_ratio"] < thr["GAP_ratio_low"],    # consumption collapses vs usual
-        "power_jump": X["GAP_diff"] > thr["GAP_diff_high"],     # far above the usual for this hour
-        "stuck_high": X["SM3_min6"] > thr["SM3_min6_high"],     # device never drops for 6 hours
-    }, index=X.index)
-
-
-def detect(df, model_path=MODEL_PATH):
-    """Isolation Forest + three simple rules. Returns one row per hour with data."""
-    bundle = joblib.load(model_path)
-    if "rule_thresholds" not in bundle:
-        raise ValueError("anomaly_model.joblib has no rule_thresholds: re-run cell 13 of the notebook")
-    d = df.sort_index()
+def build_context_features(d):
+    d = d.sort_index()
     grid = pd.date_range(d.index.min(), d.index.max(), freq="1h")
     d = d.reindex(grid)
     gap = d["Global_active_power"].astype(float)
     sm3 = d["Sub_metering_3"].astype(float)
-    exp_gap = _expected_same_hour(gap)
+    exp_gap = expected_same_hour(gap)
 
     F = pd.DataFrame(index=grid)
     F["GAP"] = gap
@@ -44,9 +31,24 @@ def detect(df, model_path=MODEL_PATH):
     F["SM3_min6"] = sm3.rolling(6).min()
     F["SM3_std6"] = sm3.rolling(6).std()
     F["hour"] = grid.hour
-    F = F[bundle["features"]]
+    return F
 
-    valid = gap.notna() & sm3.notna()
+
+def apply_rules(X, thr):
+    return pd.DataFrame({
+        "low_power": X["GAP_ratio"] < thr["GAP_ratio_low"],
+        "power_jump": X["GAP_diff"] > thr["GAP_diff_high"],
+        "stuck_high": X["SM3_min6"] > thr["SM3_min6_high"],
+    }, index=X.index)
+
+
+def detect(df, model_path=MODEL_PATH):
+    bundle = joblib.load(model_path)
+    if "rule_thresholds" not in bundle:
+        raise ValueError("anomaly_model.joblib has no rule_thresholds: run train_anomaly.py")
+
+    F = build_context_features(df)[bundle["features"]]
+    valid = F["GAP"].notna() & F["SM3"].notna()
     has_context = F.notna().all(axis=1)
     X = F.fillna(pd.Series(bundle["fill_values"]))[valid]
 
@@ -61,7 +63,6 @@ def detect(df, model_path=MODEL_PATH):
     return out.join(rules)
 
 
-# ---------------- habit suggestions ----------------
 def high_windows(profile, frac=0.5):
     p = profile.reindex(range(24))
     on = (p >= p.min() + frac * (p.max() - p.min())).to_numpy()
